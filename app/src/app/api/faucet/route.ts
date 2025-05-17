@@ -8,7 +8,7 @@ export const runtime = 'edge';
 const FAUCET_PRIVATE_KEY = process.env.FAUCET_PRIVATE_KEY;
 // const PROGRAM_ID = new PublicKey('2xySGyY8E5Wfnggfap9jfQ2WbH3T3tLGHGwLk4eKBa64');
 // Use devnet endpoint only
-const DEVNET_URL = 'https://api.devnet.solana.com';
+const DEVNET_URL = process.env.SOLANA_RPC_URL;
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Set up connection to Solana devnet only
-    const connection = new Connection(DEVNET_URL, 'confirmed');
+    const connection = new Connection(DEVNET_URL || 'https://api.devnet.solana.com', 'confirmed');
 
     // Create keypair from private key
     const keypairBytes = bs58.decode(FAUCET_PRIVATE_KEY);
