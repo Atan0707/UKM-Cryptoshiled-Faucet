@@ -88,6 +88,17 @@ export async function POST(request: NextRequest) {
       .signers([faucetKeypair])
       .rpc();
 
+      // Add transaction confirmation
+      const block = await connection.getLatestBlockhash("confirmed");
+      const result = await connection.confirmTransaction({
+        signature: tx,
+        ...block,
+      }, "confirmed");
+
+      if (result.value.err) {
+        return NextResponse.json({ error: "Transaction failed: " + result.value.err }, { status: 500 });
+      }
+
     return NextResponse.json({
       success: true,
       txSignature: tx,
