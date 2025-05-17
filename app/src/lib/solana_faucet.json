@@ -1,0 +1,60 @@
+{
+    "address": "2xySGyY8E5Wfnggfap9jfQ2WbH3T3tLGHGwLk4eKBa64",
+    "metadata": {
+      "name": "solana_faucet",
+      "version": "0.1.0",
+      "spec": "0.1.0",
+      "description": "Created with Anchor"
+    },
+    "instructions": [
+      {
+        "name": "initialize",
+        "discriminator": [
+          175,
+          175,
+          109,
+          31,
+          13,
+          152,
+          155,
+          237
+        ],
+        "accounts": [],
+        "args": []
+      },
+      {
+        "name": "send_sol",
+        "discriminator": [
+          214,
+          24,
+          219,
+          18,
+          3,
+          205,
+          201,
+          179
+        ],
+        "accounts": [
+          {
+            "name": "faucet",
+            "writable": true,
+            "signer": true
+          },
+          {
+            "name": "recipient",
+            "writable": true
+          },
+          {
+            "name": "system_program",
+            "address": "11111111111111111111111111111111"
+          }
+        ],
+        "args": [
+          {
+            "name": "amount",
+            "type": "u64"
+          }
+        ]
+      }
+    ]
+  }
