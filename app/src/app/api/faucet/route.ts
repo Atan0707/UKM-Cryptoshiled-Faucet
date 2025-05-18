@@ -3,7 +3,7 @@ import { Connection, PublicKey, Keypair, LAMPORTS_PER_SOL, Transaction, Versione
 import { AnchorProvider, BN, Program } from '@coral-xyz/anchor';
 import idl from '@/lib/solana_faucet.json';
 import { bs58 } from '@coral-xyz/anchor/dist/cjs/utils/bytes';
-export const runtime = 'edge';
+// export const runtime = 'edge';
 
 const FAUCET_PRIVATE_KEY = process.env.FAUCET_PRIVATE_KEY;
 // const PROGRAM_ID = new PublicKey('2xySGyY8E5Wfnggfap9jfQ2WbH3T3tLGHGwLk4eKBa64');
