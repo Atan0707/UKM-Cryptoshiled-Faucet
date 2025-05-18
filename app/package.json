@@ -6,10 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "pages:build": "npx @cloudflare/next-on-pages",
-    "preview": "yarn run pages:build && wrangler pages dev",
-    "deploy": "yarn run pages:build && wrangler pages deploy"
+    "lint": "next lint"
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.31.1",
