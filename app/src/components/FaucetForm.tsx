@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 // import { useToast } from "@/components/ui/use-toast";
 import { PublicKey } from "@solana/web3.js";
 import { toast } from "sonner";
+import Confetti from "react-confetti";
 
 export default function FaucetForm() {
   const [walletAddress, setWalletAddress] = useState("");
@@ -64,6 +65,14 @@ export default function FaucetForm() {
 
   return (
     <>
+      {showCelebration && (
+        <Confetti
+          width={typeof window !== 'undefined' ? window.innerWidth : 300}
+          height={typeof window !== 'undefined' ? window.innerHeight : 300}
+          numberOfPieces={350}
+          recycle={false}
+        />
+      )}
       <Dialog open={showCelebration} onOpenChange={setShowCelebration}>
         <DialogContent className="flex flex-col items-center">
           <DialogHeader>
@@ -73,7 +82,7 @@ export default function FaucetForm() {
             </DialogDescription>
           </DialogHeader>
           <img src="/dancing.gif" alt="Dancing Celebration" className="w-48 h-48 mx-auto" />
-          <audio src="/song.mp3" autoPlay controls className="my-4" />
+          <audio src="/song.mp3" autoPlay loop className="my-4" />
           <DialogFooter>
             <Button
               onClick={() => {
