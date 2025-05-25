@@ -4,8 +4,7 @@ import { FC, useState, useEffect } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { generateSigner, percentAmount, publicKey } from "@metaplex-foundation/umi";
-import type { Umi } from "@metaplex-foundation/umi";
-import { createNft, mplTokenMetadata, findMetadataPda, verifyCollectionV1, updateV1, collectionToggle } from "@metaplex-foundation/mpl-token-metadata";
+import { createNft, mplTokenMetadata, findMetadataPda, verifyCollectionV1 } from "@metaplex-foundation/mpl-token-metadata";
 import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
 // import { Metaplex } from "@metaplex-foundation/js";
 import { utils } from "@coral-xyz/anchor";
@@ -23,12 +22,14 @@ const WalletMultiButton = dynamic(
 
 // Admin configuration
 const ADMIN_WALLET = "GsjREUyUEkFRAhoSj1q9Tg4tPGCyoEAoTyFiZjqxKD92";
+const COLLECTION_MINT_ADDRESS = "CgujRRUSzqnf4TnBW8Zz6mYQbSmdZfqg6gHBwrYVCauE";
+// const COLLECTION_MINT_ADDRESS = "9Nj7r4mADh6zR5GKLYo2zMVa1EZRSvi5JeaapymDaa4U";
 // const connection = new Connection(clusterApiUrl("devnet"));
 // const metaplex = Metaplex.make(connection);
 
 // NFT metadata constant
 const NFT_METADATA = {
-  name: "UKM NFT",
+  name: "UKM Cryptoshield",
   symbol: "UKM",
   description: "A special NFT for UKM Cryptoshield",
   image: "https://plum-tough-mongoose-147.mypinata.cloud/ipfs/bafybeielm6axhykmeaoromfbm564vq46ugjagz7u45gyhtpp4k4azu5tqe",
@@ -47,9 +48,9 @@ const NFT_METADATA = {
 // Collection configuration
 const COLLECTION_CONFIG = {
   maxSupply: 100, // Maximum number of NFTs that can be minted
-  collectionName: "UKM NFT Collection",
-  collectionSymbol: "UKMC",
-  collectionDescription: "Collection of UKM Cryptoshield NFTs",
+  collectionName: "UKM Cryptoshield",
+  collectionSymbol: "UKM",
+  collectionDescription: "UKM Cryptoshield NFTs",
 };
 
 interface AssetGrouping {
@@ -74,7 +75,7 @@ const NFTPage: FC = () => {
   const [showMintingDialog, setShowMintingDialog] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const isAdmin = wallet.publicKey?.toString() === ADMIN_WALLET;
-  const COLLECTION_MINT_ADDRESS = "5n2dS25T554sWBffxmfNa3FbtfFi8nZLXBq5uJPa3bRg";
+//   const COLLECTION_MINT_ADDRESS = "CgujRRUSzqnf4TnBW8Zz6mYQbSmdZfqg6gHBwrYVCauE";
 
 //   const getTotalNFTsInCollection = async () => {
 //     try {
@@ -128,10 +129,8 @@ async function getTotalNFTsViaProgramAccounts() {
 
   const fetchMintedCount = async () => {
     try {
-
-
       if (COLLECTION_MINT_ADDRESS) {
-        // Make a direct API call to Helius
+        // Make a direct API call to Helius with proper headers and body
         const response = await fetch('https://devnet.helius-rpc.com/?api-key=6501308f-4d5a-4424-b0e4-3473208db95a', {
           method: 'POST',
           headers: {
@@ -145,24 +144,32 @@ async function getTotalNFTsViaProgramAccounts() {
               groupKey: "collection",
               groupValue: COLLECTION_MINT_ADDRESS,
               page: 1,
-              limit: 1000
+              limit: 1000,
+              sortBy: {
+                sortBy: "created",
+                sortDirection: "asc"
+              },
+              displayOptions: {
+                showCollectionMetadata: true
+              }
             }
           })
         });
 
         const data = await response.json();
-        console.log("Data:", data);
+        console.log("Collection data:", data);
 
         if (data.result && data.result.items) {
           // Count only verified NFTs in the collection
           const verifiedCount = data.result.items.filter((asset: Asset) => 
-            asset.grouping.find(g => 
+            asset.grouping.some(g => 
               g.group_key === "collection" && 
               g.group_value === COLLECTION_MINT_ADDRESS && 
               g.verified === true
             )
           ).length;
 
+          console.log("Verified NFTs count:", verifiedCount);
           setMintedCount(verifiedCount);
         } else {
           console.log("No items found in collection");
@@ -188,7 +195,7 @@ async function getTotalNFTsViaProgramAccounts() {
           .use(mplTokenMetadata());
 
         // Rest of your existing initialization code...
-        const COLLECTION_MINT_ADDRESS = "5n2dS25T554sWBffxmfNa3FbtfFi8nZLXBq5uJPa3bRg";
+        // const COLLECTION_MINT_ADDRESS = "9Nj7r4mADh6zR5GKLYo2zMVa1EZRSvi5JeaapymDaa4U";
         
         if (COLLECTION_MINT_ADDRESS) {
           try {
@@ -240,45 +247,36 @@ async function getTotalNFTsViaProgramAccounts() {
         .use(walletAdapterIdentity(wallet))
         .use(mplTokenMetadata());
 
-      await createCollection(umi);
+      // Generate a new mint for the collection
+      const collectionMintKeypair = generateSigner(umi);
       
+      console.log("Creating new collection with mint:", collectionMintKeypair.publicKey.toString());
+
+      // Create the collection NFT
+      const { signature } = await createNft(umi, {
+        mint: collectionMintKeypair,
+        name: NFT_METADATA.name + " Collection",
+        symbol: NFT_METADATA.symbol,
+        uri: NFT_METADATA.image,
+        sellerFeeBasisPoints: percentAmount(0),
+        isCollection: true,
+      }).sendAndConfirm(umi);
+
+      console.log("Collection created with signature:", signature);
+      console.log("Collection mint address:", collectionMintKeypair.publicKey.toString());
+      
+      // Set the new collection mint
+      setCollectionMint(collectionMintKeypair.publicKey.toString());
+      
+      // Reset minted count since this is a new collection
+      setMintedCount(0);
+
     } catch (error) {
       console.error("Error creating collection:", error);
       setError(error instanceof Error ? error.message : "Failed to create collection");
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const createCollection = async (umi: Umi) => {
-    if (!wallet.publicKey) return null;
-    
-    // Return existing collection if it exists
-    if (collectionMint) {
-      return publicKey(collectionMint);
-    }
-
-    // Only admin can create new collection
-    if (!isAdmin) {
-      throw new Error("Collection not created yet. Please wait for admin to create it.");
-    }
-
-    const collectionMintKeypair = generateSigner(umi);
-    
-    // First create the collection NFT without verification
-    await createNft(umi, {
-      mint: collectionMintKeypair,
-      name: COLLECTION_CONFIG.collectionName,
-      symbol: COLLECTION_CONFIG.collectionSymbol,
-      uri: NFT_METADATA.image,
-      sellerFeeBasisPoints: percentAmount(0),
-      isCollection: true,
-    }).sendAndConfirm(umi);
-
-    console.log("Created collection with mint address:", collectionMintKeypair.publicKey.toString());
-    
-    setCollectionMint(collectionMintKeypair.publicKey.toString());
-    return collectionMintKeypair.publicKey;
   };
 
   const mintNFT = async () => {
@@ -294,13 +292,12 @@ async function getTotalNFTsViaProgramAccounts() {
         .use(walletAdapterIdentity(wallet))
         .use(mplTokenMetadata());
 
-      // Get or create collection
-      const collectionPublicKey = await createCollection(umi);
-      
-      if (!collectionPublicKey) {
-        throw new Error("Failed to get collection");
+      if (!collectionMint) {
+        throw new Error("No collection exists. Please create a collection first.");
       }
 
+      const collectionPublicKey = publicKey(collectionMint);
+      
       // Generate mint address for the new NFT
       const mint = generateSigner(umi);
 
@@ -318,27 +315,16 @@ async function getTotalNFTsViaProgramAccounts() {
       }).sendAndConfirm(umi);
 
       // After creating the NFT, verify it as part of the collection
-      const metadata = findMetadataPda(umi, { mint: mint.publicKey });
-      
-      // First set the collection
-      await updateV1(umi, {
-        mint: mint.publicKey,
-        authority: umi.identity,
-        collection: collectionToggle("Set", [
-          {
-            key: collectionPublicKey,
-            verified: false,
-          },
-        ]),
-      }).sendAndConfirm(umi);
-
-      // Then verify the collection
       if (isAdmin) {
+        const metadata = findMetadataPda(umi, { mint: mint.publicKey });
+        
         await verifyCollectionV1(umi, {
           metadata,
           collectionMint: collectionPublicKey,
           authority: umi.identity,
         }).sendAndConfirm(umi);
+
+        console.log("NFT verified in collection!");
       }
 
       // Convert signature to base58 string
@@ -367,24 +353,31 @@ async function getTotalNFTsViaProgramAccounts() {
     <div>
       <main className="flex min-h-screen flex-col items-center justify-between p-4 bg-slate-50">
         <div className="max-w-xl w-full">
-          <h1 className="text-3xl font-bold text-center mb-2">Mint Your UKM NFT</h1>
-          <p className="text-center text-gray-500 mb-8">UKM Cryptoshield NFT Minting ({mintedCount}/{COLLECTION_CONFIG.maxSupply} minted)</p>
+          <h1 className="text-3xl font-bold text-center mb-2">Mint Your Cryptoshield NFT Here!</h1>
+          <p className="text-center text-gray-500 mb-8">Just click the button and sign the transaction</p>
           
-          {isAdmin && !collectionMint && (
+          {isAdmin && (
             <Card className="mb-4">
               <CardHeader>
                 <CardTitle>Admin Controls</CardTitle>
                 <CardDescription>
-                  Initialize the NFT collection
+                  Manage NFT Collections
                 </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {collectionMint && (
+                  <div className="text-sm p-4 bg-gray-50 rounded-lg">
+                    <p className="font-semibold">Current Collection:</p>
+                    <p className="break-all text-gray-600">{collectionMint}</p>
+                    <p className="mt-2 text-gray-500">Total Minted: {mintedCount}</p>
+                  </div>
+                )}
                 <button
                   onClick={handleCreateCollection}
                   disabled={isLoading}
                   className="w-full py-2 px-4 bg-purple-500 text-white rounded-md hover:bg-purple-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? "Creating Collection..." : "Create Collection"}
+                  {isLoading ? "Creating Collection..." : "Create New Collection"}
                 </button>
               </CardContent>
             </Card>
