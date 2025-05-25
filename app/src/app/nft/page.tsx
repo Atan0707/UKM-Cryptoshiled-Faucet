@@ -6,12 +6,15 @@ import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { generateSigner, percentAmount, publicKey } from "@metaplex-foundation/umi";
 import type { Umi } from "@metaplex-foundation/umi";
 import { createNft, mplTokenMetadata, findMetadataPda, verifyCollectionV1, updateV1, collectionToggle } from "@metaplex-foundation/mpl-token-metadata";
-import { clusterApiUrl } from "@solana/web3.js";
 import { walletAdapterIdentity } from "@metaplex-foundation/umi-signer-wallet-adapters";
+// import { Metaplex } from "@metaplex-foundation/js";
 import { utils } from "@coral-xyz/anchor";
 import dynamic from "next/dynamic";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import Image from "next/image";
+import { Connection, clusterApiUrl } from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/utils/token";
 
 const WalletMultiButton = dynamic(
   () => import("@solana/wallet-adapter-react-ui").then(mod => mod.WalletMultiButton),
@@ -20,6 +23,8 @@ const WalletMultiButton = dynamic(
 
 // Admin configuration
 const ADMIN_WALLET = "GsjREUyUEkFRAhoSj1q9Tg4tPGCyoEAoTyFiZjqxKD92";
+// const connection = new Connection(clusterApiUrl("devnet"));
+// const metaplex = Metaplex.make(connection);
 
 // NFT metadata constant
 const NFT_METADATA = {
@@ -66,12 +71,65 @@ const NFTPage: FC = () => {
   const [mintedCount, setMintedCount] = useState(0);
   const [collectionMint, setCollectionMint] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showMintingDialog, setShowMintingDialog] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const isAdmin = wallet.publicKey?.toString() === ADMIN_WALLET;
+  const COLLECTION_MINT_ADDRESS = "5n2dS25T554sWBffxmfNa3FbtfFi8nZLXBq5uJPa3bRg";
+
+//   const getTotalNFTsInCollection = async () => {
+//     try {
+//       const collectionPubkey = new PublicKey(COLLECTION_MINT_ADDRESS);
+      
+//       // Find all NFTs in the collection
+//       const nfts = await metaplex.nfts().findAllByCollection({
+//         collection: collectionPubkey
+//       });
+      
+//       return nfts.length;
+//     } catch (error) {
+//       console.error("Error fetching collection NFTs:", error);
+//       return 0;
+//     }
+//   }
+
+//   useEffect(() => {
+//     getTotalNFTsInCollection();
+//   }, []);
+
+async function getTotalNFTsViaProgramAccounts() {
+    const connection = new Connection(clusterApiUrl("devnet"));
+    
+    try {
+      const accounts = await connection.getProgramAccounts(TOKEN_PROGRAM_ID, {
+        filters: [
+          {
+            dataSize: 165, // Token account data size
+          },
+          {
+            memcmp: {
+              offset: 0,
+              bytes: COLLECTION_MINT_ADDRESS, // Filter by collection
+            },
+          },
+        ],
+      });
+      console.log("Accounts:", accounts);
+      return accounts.length;
+
+    } catch (error) {
+      console.error("Error fetching via program accounts:", error);
+      return 0;
+    }
+  }
+
+  useEffect(() => {
+    getTotalNFTsViaProgramAccounts();
+  }, []);
 
   const fetchMintedCount = async () => {
     try {
-      const COLLECTION_MINT_ADDRESS = "5n2dS25T554sWBffxmfNa3FbtfFi8nZLXBq5uJPa3bRg";
-      
+
+
       if (COLLECTION_MINT_ADDRESS) {
         // Make a direct API call to Helius
         const response = await fetch('https://devnet.helius-rpc.com/?api-key=6501308f-4d5a-4424-b0e4-3473208db95a', {
@@ -229,6 +287,7 @@ const NFTPage: FC = () => {
     try {
       setIsLoading(true);
       setError(null);
+      setShowMintingDialog(true);
 
       // Initialize Umi with wallet adapter identity
       const umi = createUmi(clusterApiUrl("devnet"))
@@ -288,9 +347,13 @@ const NFTPage: FC = () => {
       // Update minted count
       setMintedCount(prev => prev + 1);
       
+      setShowMintingDialog(false);
+      setShowSuccessDialog(true);
+      
     } catch (error) {
       console.error("Error minting NFT:", error);
       setError(error instanceof Error ? error.message : "Failed to mint NFT");
+      setShowMintingDialog(false);
     } finally {
       setIsLoading(false);
     }
@@ -305,7 +368,7 @@ const NFTPage: FC = () => {
       <main className="flex min-h-screen flex-col items-center justify-between p-4 bg-slate-50">
         <div className="max-w-xl w-full">
           <h1 className="text-3xl font-bold text-center mb-2">Mint Your UKM NFT</h1>
-          <p className="text-center text-gray-500 mb-8">UKM Cryptoshield NFT Minting</p>
+          <p className="text-center text-gray-500 mb-8">UKM Cryptoshield NFT Minting ({mintedCount}/{COLLECTION_CONFIG.maxSupply} minted)</p>
           
           {isAdmin && !collectionMint && (
             <Card className="mb-4">
@@ -326,38 +389,6 @@ const NFTPage: FC = () => {
               </CardContent>
             </Card>
           )}
-
-          <Card className="mb-8">
-            <CardHeader>
-              <CardTitle>NFT Preview</CardTitle>
-              <CardDescription>
-                Preview of the NFT you&apos;re about to mint ({mintedCount}/{COLLECTION_CONFIG.maxSupply} minted)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center space-y-4">
-              <div className="relative w-full aspect-square rounded-lg overflow-hidden">
-                <Image
-                  src={NFT_METADATA.image}
-                  alt={NFT_METADATA.name}
-                  fill
-                  className="object-cover"
-                  priority
-                />
-              </div>
-              <div className="w-full space-y-2">
-                <h3 className="font-semibold">{NFT_METADATA.name}</h3>
-                <p className="text-sm text-gray-500">{NFT_METADATA.description}</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {NFT_METADATA.attributes.map((attr, index) => (
-                    <div key={index} className="bg-gray-100 p-2 rounded-md">
-                      <p className="text-xs text-gray-500">{attr.trait_type}</p>
-                      <p className="text-sm font-medium">{attr.value}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           <div className="flex flex-col items-center gap-4">
             <WalletMultiButton className="!bg-blue-500 hover:!bg-blue-600" />
@@ -380,28 +411,59 @@ const NFTPage: FC = () => {
             ) : (
               <p className="text-center text-gray-500">Connect your wallet to mint NFTs</p>
             )}
-
-            {txHash && (
-              <Card className="w-full">
-                <CardHeader>
-                  <CardTitle className="text-green-500">NFT Minted Successfully!</CardTitle>
-                  <CardDescription>
-                    Your NFT has been minted to your wallet
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <a 
-                    href={`https://explorer.solana.com/tx/${txHash}?cluster=devnet`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-500 hover:underline"
-                  >
-                    View on Explorer
-                  </a>
-                </CardContent>
-              </Card>
-            )}
           </div>
+
+          {/* Minting Dialog */}
+          <Dialog open={showMintingDialog} onOpenChange={setShowMintingDialog}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Minting in Progress</DialogTitle>
+                <DialogDescription>
+                  Please wait while your NFT is being minted. This process may take a few moments.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500"></div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Success Dialog */}
+          <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>NFT Minted Successfully!</DialogTitle>
+                <DialogDescription>
+                  Your UKM NFT has been successfully minted to your wallet.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col items-center gap-4 py-4">
+                <div className="relative w-full aspect-square rounded-lg overflow-hidden max-w-xs mx-auto">
+                  <Image
+                    src={NFT_METADATA.image}
+                    alt={NFT_METADATA.name}
+                    fill
+                    className="object-cover"
+                    priority
+                  />
+                </div>
+                <div className="text-center">
+                  <h3 className="font-semibold mb-2">{`${NFT_METADATA.name} #${mintedCount}`}</h3>
+                  <p className="text-sm text-gray-500 mb-4">{NFT_METADATA.description}</p>
+                  {txHash && (
+                    <a 
+                      href={`https://explorer.solana.com/tx/${txHash}?cluster=devnet`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:underline"
+                    >
+                      View on Explorer
+                    </a>
+                  )}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </main>
     </div>
