@@ -352,7 +352,7 @@ async function getTotalNFTsViaProgramAccounts() {
       
     } catch (error) {
       console.error("Error minting NFT:", error);
-      setError(error instanceof Error ? error.message : "Failed to mint NFT");
+    //   setError(error instanceof Error ? error.message : "Failed to mint NFT");
       setShowMintingDialog(false);
     } finally {
       setIsLoading(false);
